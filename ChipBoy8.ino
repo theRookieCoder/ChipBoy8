@@ -83,7 +83,7 @@ int serial_printf(const char* format, ...) {
 
 MachineState machineState = {};
 
-constexpr uint16_t availableProgSpace = sizeof(machineState.ram) - 0x0200;
+constexpr uint16_t availableProgSpace = sizeof(machineState.ram) - 16 * 5;
 
 
 void setup() {
@@ -95,21 +95,37 @@ void setup() {
     arduboy.display();
 
 
-    machineState.programCounter = 0x0200;
-    machineState.heldKeys = &heldKeys;
-    machineState.getPixel = &getPixel;
-    machineState.togglePixel = &togglePixel;
-    machineState.clearDisplay = &arduboy.clear;
+    core_init(&machineState,
+              NULL,
+              &heldKeys,
+              &getPixel,
+              &togglePixel,
+              &arduboy.clear);
 
 
     Serial.begin(115200);
 
+    delay(1000);  // Wait for a computer to possibly setup a serial connection
     if (Serial) {
-        Serial.readBytesUntil(
-            '\n', &machineState.ram[0x0200], availableProgSpace);
+        Serial.println(availableProgSpace);
+        delay(100);
+        uint8_t buf;
+        for (int i = 0; i < availableProgSpace; i++) {
+            buf = Serial.read();
+            if (buf == -1) break;
+            machineState.ram[(0x0200 + i) % CORE_RAM_SIZE] = buf;
+        }
     } else {
         if (sizeof(PROGRAM) < availableProgSpace) {
-            memcpy_P(&machineState.ram[0x0200], PROGRAM, sizeof(PROGRAM));
+            if (sizeof(PROGRAM) > CORE_RAM_SIZE - 0x200) {
+                memcpy_P(
+                    &machineState.ram[0x0200], PROGRAM, CORE_RAM_SIZE - 0x200);
+                memcpy_P(machineState.ram,
+                         &PROGRAM[CORE_RAM_SIZE - 0x200],
+                         sizeof(PROGRAM) - (CORE_RAM_SIZE - 0x200));
+            } else {
+                memcpy_P(&machineState.ram[0x200], PROGRAM, sizeof(PROGRAM));
+            }
         } else {
 #if DEBUG
             printf("Not enough RAM to load program.");
