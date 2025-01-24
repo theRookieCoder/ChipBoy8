@@ -1,0 +1,4 @@
+{
+    "port": "/dev/ttyACM0",
+    "board": "arduboy:avr:arduboy"
+}

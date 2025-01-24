@@ -5,7 +5,7 @@ extern "C" {
 }
 
 
-// Timendus' splash screen
+// BRIX
 const PROGMEM uint8_t PROGRAM[] = {
     0x6e, 0x05, 0x65, 0x00, 0x6b, 0x06, 0x6a, 0x00, 0xa3, 0x0c, 0xda, 0xb1,
     0x7a, 0x04, 0x3a, 0x40, 0x12, 0x08, 0x7b, 0x02, 0x3b, 0x12, 0x12, 0x06,
@@ -34,9 +34,26 @@ const PROGMEM uint8_t PROGRAM[] = {
 };
 
 
-Arduboy2Base arduboy;
+Arduboy2 arduboy;
+BeepPin1 audio;
 
-uint16_t heldKeys() { return 0; }
+
+const uint8_t KEYS[] = {
+    UP_BUTTON,
+    DOWN_BUTTON,
+    LEFT_BUTTON,
+    RIGHT_BUTTON,
+    A_BUTTON,
+    B_BUTTON,
+};
+const uint8_t KEYMAP[] = {0x2, 0x8, 0x4, 0x6, 0xA, 0xB};
+
+uint16_t heldKeys() {
+    uint16_t heldKeys = 0;
+    for (int i = 0; i < sizeof(KEYS); i++)
+        heldKeys |= arduboy.pressed(KEYS[i]) << KEYMAP[i];
+    return heldKeys;
+}
 
 bool getPixel(uint8_t x, uint8_t y) {
     return arduboy.getPixel(x * 2, y * 2) == WHITE;
@@ -66,17 +83,17 @@ int serial_printf(const char* format, ...) {
 
 MachineState machineState = {};
 
+constexpr uint16_t availableProgSpace = sizeof(machineState.ram) - 0x0200;
+
 
 void setup() {
     arduboy.begin();
+    audio.begin();
+
     arduboy.setFrameRate(60);
-    arduboy.clear();
+    arduboy.blank();
     arduboy.display();
 
-#if DEBUG
-    Serial.begin(115200);
-    while (!Serial);
-#endif
 
     machineState.programCounter = 0x0200;
     machineState.heldKeys = &heldKeys;
@@ -84,13 +101,22 @@ void setup() {
     machineState.togglePixel = &togglePixel;
     machineState.clearDisplay = &arduboy.clear;
 
-    if (sizeof(PROGRAM) < sizeof(machineState.ram) - 0x0200) {
-        memcpy_P(&machineState.ram[0x0200], PROGRAM, sizeof(PROGRAM));
-    } else {
-        printf("Not enough RAM to load program.");
-        while (true);
-    }
 
+    Serial.begin(115200);
+
+    if (Serial) {
+        Serial.readBytesUntil(
+            '\n', &machineState.ram[0x0200], availableProgSpace);
+    } else {
+        if (sizeof(PROGRAM) < availableProgSpace) {
+            memcpy_P(&machineState.ram[0x0200], PROGRAM, sizeof(PROGRAM));
+        } else {
+#if DEBUG
+            printf("Not enough RAM to load program.");
+#endif
+            while (true);
+        }
+    }
 #if DEBUG
     // Dump RAM to the console
     printf("ADDR: DATA");
@@ -103,13 +129,20 @@ void setup() {
 }
 
 void loop() {
-    // Tick timer at 60 Hz
+    // Tick timer and poll buttons at 60 Hz
     if (arduboy.nextFrame()) {
-        core_timerTick(&machineState);
         arduboy.pollButtons();
+        core_timerTick(&machineState);
+
+        if (machineState.soundTimer > 0)
+            audio.tone(audio.freq(440));
+        else
+            audio.noTone();
     };
 
     bool updateDisplay = core_tick(&machineState);
 
     if (updateDisplay) arduboy.display();
+
+    arduboy.delayShort(2);  // Execute instructions at ~500 Hz
 }
