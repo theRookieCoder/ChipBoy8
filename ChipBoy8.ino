@@ -5,6 +5,121 @@ extern "C" {
 }
 
 
+const PROGMEM uint8_t PROGMEM_FONT[16 * 5] = {
+    // 0
+    0b11110000,
+    0b10010000,
+    0b10010000,
+    0b10010000,
+    0b11110000,
+
+    // 1
+    0b00100000,
+    0b01100000,
+    0b00100000,
+    0b00100000,
+    0b01110000,
+
+    // 2
+    0b11110000,
+    0b00010000,
+    0b11110000,
+    0b10000000,
+    0b11110000,
+
+    // 3
+    0b11110000,
+    0b00010000,
+    0b11110000,
+    0b00010000,
+    0b11110000,
+
+    // 4
+    0b10010000,
+    0b10010000,
+    0b11110000,
+    0b00010000,
+    0b00010000,
+
+    // 5
+    0b11110000,
+    0b10000000,
+    0b11110000,
+    0b00010000,
+    0b11110000,
+
+    // 6
+    0b11110000,
+    0b10000000,
+    0b11110000,
+    0b10010000,
+    0b11110000,
+
+    // 7
+    0b11110000,
+    0b00010000,
+    0b00100000,
+    0b01000000,
+    0b01000000,
+
+    // 8
+    0b11110000,
+    0b10010000,
+    0b11110000,
+    0b10010000,
+    0b11110000,
+
+    // 9
+    0b11110000,
+    0b10010000,
+    0b11110000,
+    0b00010000,
+    0b11110000,
+
+    // A
+    0b11110000,
+    0b10010000,
+    0b11110000,
+    0b10010000,
+    0b10010000,
+
+    // B
+    0b11100000,
+    0b10010000,
+    0b11100000,
+    0b10010000,
+    0b11100000,
+
+    // C
+    0b11110000,
+    0b10000000,
+    0b10000000,
+    0b10000000,
+    0b11110000,
+
+    // D
+    0b11100000,
+    0b10010000,
+    0b10010000,
+    0b10010000,
+    0b11100000,
+
+    // E
+    0b11110000,
+    0b10000000,
+    0b11110000,
+    0b10000000,
+    0b11110000,
+
+    // F
+    0b11110000,
+    0b10000000,
+    0b11110000,
+    0b10000000,
+    0b10000000,
+};
+
+
 // BRIX
 const PROGMEM uint8_t PROGRAM[] = {
     0x6e, 0x05, 0x65, 0x00, 0x6b, 0x06, 0x6a, 0x00, 0xa3, 0x0c, 0xda, 0xb1,
@@ -69,7 +184,7 @@ void togglePixel(uint8_t x, uint8_t y) {
 
 
 // #define printf serial_printf
-char format_buffer[80];
+char format_buffer[40];
 int serial_printf(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -96,11 +211,15 @@ void setup() {
 
 
     core_init(&machineState,
-              NULL,
+              PROGMEM_FONT,  // Won't actually load the font
               &heldKeys,
               &getPixel,
               &togglePixel,
               &arduboy.clear);
+    // Load the font from program memory
+    memcpy_P(&machineState.ram[0x200 - sizeof(PROGMEM_FONT)],
+             PROGMEM_FONT,
+             sizeof(PROGMEM_FONT));
 
 
     Serial.begin(115200);
@@ -144,6 +263,9 @@ void setup() {
 #endif
 }
 
+uint32_t emulationTick = micros();
+#define EMULATION_FREQ 500
+
 void loop() {
     // Tick timer and poll buttons at 60 Hz
     if (arduboy.nextFrame()) {
@@ -156,9 +278,11 @@ void loop() {
             audio.noTone();
     };
 
-    bool updateDisplay = core_tick(&machineState);
+    // Run instructions at the specified EMULATION_FREQ
+    if ((micros() - emulationTick) > (1000000 / EMULATION_FREQ)) {
+        emulationTick = micros();
 
-    if (updateDisplay) arduboy.display();
-
-    arduboy.delayShort(2);  // Execute instructions at ~500 Hz
+        bool updateDisplay = core_tick(&machineState);
+        if (updateDisplay) arduboy.display();
+    }
 }

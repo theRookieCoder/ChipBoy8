@@ -1,12 +1,12 @@
 default: build
 
-upload port debug="true": (build debug)
+upload port debug="false": (build debug)
     arduino-cli upload \
         --verify \
         --port {{ port }} \
         --fqbn arduboy:avr:arduboy
 
-build debug="true" ram_size="1024":
+build debug="false" ram_size="1200":
     arduino-cli compile \
         --warnings all \
         --jobs 0 \
