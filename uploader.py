@@ -4,7 +4,7 @@ from time import sleep
 from sys import argv
 
 if len(argv) != 2:
-    print("Usage: chipboy8 ROM_FILE")
+    print("Usage: uploader ROM_FILE")
     exit(1)
 
 program = b''
