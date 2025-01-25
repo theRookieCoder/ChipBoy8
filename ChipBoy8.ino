@@ -50,7 +50,7 @@ const uint8_t KEYMAP[] = {0x2, 0x8, 0x4, 0x6, 0xA, 0xB};
 
 uint16_t heldKeys() {
     uint16_t heldKeys = 0;
-    for (int i = 0; i < sizeof(KEYS); i++)
+    for (unsigned int i = 0; i < sizeof(KEYS); i++)
         heldKeys |= arduboy.pressed(KEYS[i]) << KEYMAP[i];
     return heldKeys;
 }
@@ -109,8 +109,8 @@ void setup() {
     if (Serial) {
         Serial.println(availableProgSpace);
         delay(100);
-        uint8_t buf;
-        for (int i = 0; i < availableProgSpace; i++) {
+        int buf;
+        for (unsigned int i = 0; i < availableProgSpace; i++) {
             buf = Serial.read();
             if (buf == -1) break;
             machineState.ram[(0x0200 + i) % CORE_RAM_SIZE] = buf;
@@ -136,7 +136,7 @@ void setup() {
 #if DEBUG
     // Dump RAM to the console
     printf("ADDR: DATA");
-    for (int i = 0; i < sizeof(machineState.ram); i++) {
+    for (unsigned int i = 0; i < sizeof(machineState.ram); i++) {
         if (i % 16 == 0) printf("\n%04X: ", i);
         printf("0x%02X ", machineState.ram[i]);
     }
