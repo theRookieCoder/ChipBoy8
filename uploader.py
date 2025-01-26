@@ -27,6 +27,7 @@ with Serial(ports[0].device, 115200, timeout=3) as ser:
         exit(1)
 
     ser.write(f"{len(program)}".encode())
+
     keys = ["Up", "Down", "Left", "Right", "A", "B"]
     for key in keys:
         inp = input(f"{key} button: ")
