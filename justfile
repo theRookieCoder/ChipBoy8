@@ -9,7 +9,7 @@ upload port debug="false": (build debug)
         --fqbn arduboy:avr:arduboy
 
 # Compile ChipBoy8 with core ram size `ram_size`
-build debug="false" ram_size="1200":
+build debug="false" ram_size="1024":
     arduino-cli compile \
         --warnings all \
         --jobs 0 \
@@ -25,7 +25,7 @@ build debug="false" ram_size="1200":
             -DDEBUG={{ debug }}'
 
 # Compile and analyse RAM usage
-analyse-ram debug="false": (build debug)
+analyse-ram:
     avr-nm \
         --demangle \
         --radix=d \
