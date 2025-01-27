@@ -5,7 +5,7 @@ extern "C" {
 }
 
 
-const PROGMEM uint8_t PROGMEM_FONT[16 * 5] = {
+const PROGMEM uint8_t k_flashFont[16 * 5] = {
     // 0
     0b11110000,
     0b10010000,
@@ -122,7 +122,7 @@ const PROGMEM uint8_t PROGMEM_FONT[16 * 5] = {
 
 /* PROGRAMS */
 
-const PROGMEM uint8_t CORAX_PLUS[] = {
+const PROGMEM uint8_t k_coraxPlus[] = {
     0x12, 0x0a, 0x60, 0x01, 0x00, 0xee, 0x60, 0x02, 0x12, 0xa6, 0x00, 0xe0,
     0x68, 0x32, 0x6b, 0x1a, 0xa4, 0xf1, 0xd8, 0xb4, 0x68, 0x3a, 0xa4, 0xf5,
     0xd8, 0xb4, 0x68, 0x02, 0x69, 0x06, 0x6a, 0x0b, 0x6b, 0x01, 0x65, 0x2a,
@@ -189,8 +189,8 @@ const PROGMEM uint8_t CORAX_PLUS[] = {
     0x42, 0x38, 0x08, 0x30, 0xb8,
 };
 
-const PROGMEM uint8_t BRIX_KEYMAP[] = {0, 0, 0x4, 0x6, 0, 0};
-const PROGMEM uint8_t BRIX[] = {
+const PROGMEM uint8_t k_brixKeymap[] = {0, 0, 0x4, 0x6, 0x4, 0x6};
+const PROGMEM uint8_t k_brix[] = {
     0x6e, 0x05, 0x65, 0x00, 0x6b, 0x06, 0x6a, 0x00, 0xa3, 0x0c, 0xda, 0xb1,
     0x7a, 0x04, 0x3a, 0x40, 0x12, 0x08, 0x7b, 0x02, 0x3b, 0x12, 0x12, 0x06,
     0x6c, 0x20, 0x6d, 0x1f, 0xa3, 0x10, 0xdc, 0xd1, 0x22, 0xf6, 0x60, 0x00,
@@ -218,8 +218,8 @@ const PROGMEM uint8_t BRIX[] = {
 };
 
 
-const PROGMEM uint8_t TETRIS_KEYMAP[] = {0x4, 0x7, 0x5, 0x6, 0x4, 0x4};
-const PROGMEM uint8_t TETRIS[] = {
+const PROGMEM uint8_t k_tetrisKeymap[] = {0x4, 0x7, 0x5, 0x6, 0x4, 0x4};
+const PROGMEM uint8_t k_tetris[] = {
     0xa2, 0xb4, 0x23, 0xe6, 0x22, 0xb6, 0x70, 0x01, 0xd0, 0x11, 0x30, 0x25,
     0x12, 0x06, 0x71, 0xff, 0xd0, 0x11, 0x60, 0x1a, 0xd0, 0x11, 0x60, 0x25,
     0x31, 0x00, 0x12, 0x0e, 0xc4, 0x70, 0x44, 0x70, 0x12, 0x1c, 0xc3, 0x03,
@@ -264,8 +264,8 @@ const PROGMEM uint8_t TETRIS[] = {
     0x37, 0x23,
 };
 
-const PROGMEM uint8_t HIDDEN_KEYMAP[] = {0x2, 0x8, 0x4, 0x6, 0x5, 0x5};
-const PROGMEM uint8_t HIDDEN[] = {
+const PROGMEM uint8_t k_hiddenKeymap[] = {0x2, 0x8, 0x4, 0x6, 0x5, 0x5};
+const PROGMEM uint8_t k_hidden[] = {
     0x12, 0x1d, 0x48, 0x49, 0x44, 0x44, 0x45, 0x4e, 0x21, 0x20, 0x31, 0x2e,
     0x30, 0x20, 0x42, 0x79, 0x20, 0x44, 0x61, 0x76, 0x69, 0x64, 0x20, 0x57,
     0x49, 0x4e, 0x54, 0x45, 0x52, 0xa4, 0x3f, 0x60, 0x00, 0x61, 0x40, 0xf1,
@@ -340,11 +340,16 @@ const PROGMEM uint8_t HIDDEN[] = {
 };
 
 
-Arduboy2 arduboy;
-BeepPin1 audio;
+Arduboy2 g_arduboy;
+BeepPin1 g_audio;
+
+MachineState g_machineState = {};
+constexpr uint16_t k_availableProgSpace = sizeof(g_machineState.ram) - 16 * 5;
 
 
-const uint8_t KEYS[] = {
+/* KEY HANDLING */
+
+const uint8_t k_arduboyKeys[] = {
     UP_BUTTON,
     DOWN_BUTTON,
     LEFT_BUTTON,
@@ -352,101 +357,99 @@ const uint8_t KEYS[] = {
     A_BUTTON,
     B_BUTTON,
 };
-const char KEYS_GRAPHICAL[] = {'\x18', '\x19', '\x1B', '\x1A', '\x41', '\x42'};
-uint8_t keymap[6] = {};
+const char k_buttonIcons[] = {'\x18', '\x19', '\x1B', '\x1A', '\x41', '\x42'};
+uint8_t g_keymap[6] = {};
 
 uint16_t heldKeys() {
     uint16_t heldKeys = 0;
-    for (unsigned int i = 0; i < sizeof(KEYS); i++)
-        heldKeys |= arduboy.pressed(KEYS[i]) << keymap[i];
+    for (unsigned int i = 0; i < sizeof(k_arduboyKeys); i++)
+        heldKeys |= g_arduboy.pressed(k_arduboyKeys[i]) << g_keymap[i];
     return heldKeys;
 }
 
 
+/* DISPLAY HANDLING */
+
 bool getPixel(uint8_t x, uint8_t y) {
-    return arduboy.getPixel(x * 2, y * 2) == WHITE;
+    return g_arduboy.getPixel(x * 2, y * 2) == WHITE;
 }
 
 void togglePixel(uint8_t x, uint8_t y) {
-    uint8_t colour = getPixel(x, y) == WHITE ? BLACK : WHITE;
-    arduboy.drawPixel((x * 2) + 0, (y * 2) + 0, colour);
-    arduboy.drawPixel((x * 2) + 0, (y * 2) + 1, colour);
-    arduboy.drawPixel((x * 2) + 1, (y * 2) + 0, colour);
-    arduboy.drawPixel((x * 2) + 1, (y * 2) + 1, colour);
+    uint8_t colour = getPixel(x, y) ? BLACK : WHITE;
+    g_arduboy.drawPixel((x * 2) + 0, (y * 2) + 0, colour);
+    g_arduboy.drawPixel((x * 2) + 0, (y * 2) + 1, colour);
+    g_arduboy.drawPixel((x * 2) + 1, (y * 2) + 0, colour);
+    g_arduboy.drawPixel((x * 2) + 1, (y * 2) + 1, colour);
 }
 
 
+/* DEBUG VIA SERIAL */
+
+char g_formatBuffer[40];
 // Use with compiler flag
-// -Dprintf serial_printf
-char format_buffer[40];
+// `-Dprintf serial_printf`
 int serial_printf(const char* format, ...) {
     va_list args;
     va_start(args, format);
 
-    vsnprintf(format_buffer, sizeof(format_buffer), format, args);
+    vsnprintf(g_formatBuffer, sizeof(g_formatBuffer), format, args);
 
     va_end(args);
-    return Serial.print(format_buffer);
+    return Serial.print(g_formatBuffer);
 }
 
 
-MachineState machineState = {};
-
-constexpr uint16_t availableProgSpace = sizeof(machineState.ram) - 16 * 5;
-
+/* PROGRAM SELECTION MENU */
 
 #define NUM_PROGRAMS 4
-
 unsigned int programSelect() {
     unsigned int selected = 1;
 
     while (true) {
-        if (!arduboy.nextFrame()) continue;
-        arduboy.pollButtons();
+        if (!g_arduboy.nextFrame()) continue;
 
-        if (arduboy.justPressed(UP_BUTTON) && selected > 0) selected--;
-        if (arduboy.justPressed(DOWN_BUTTON) && selected < NUM_PROGRAMS)
+        g_arduboy.pollButtons();
+        g_arduboy.clear();
+
+        if (g_arduboy.justPressed(UP_BUTTON) && selected > 0) selected--;
+        if (g_arduboy.justPressed(DOWN_BUTTON) && selected < NUM_PROGRAMS)
             selected++;
-        if (arduboy.justPressed(A_BUTTON)) {
-            arduboy.clear();
-            return selected;
-        }
+        if (g_arduboy.justPressed(A_BUTTON)) return selected;
 
-        arduboy.clear();
         for (unsigned int i = 0; i < NUM_PROGRAMS + 1; i++) {
-            arduboy.print((i == selected) ? "> " : "  ");
+            g_arduboy.print((i == selected) ? "> " : "  ");
             switch (i) {
                 case 0:
-                    arduboy.println(F("Load from Computer"));
+                    g_arduboy.println(F("Load from Computer"));
                     break;
                 case 1:
-                    arduboy.println(F("Corax Plus"));
+                    g_arduboy.println(F("Corax Plus"));
                     break;
                 case 2:
-                    arduboy.println(F("BRIX"));
+                    g_arduboy.println(F("BRIX"));
                     break;
                 case 3:
-                    arduboy.println(F("TETRIS"));
+                    g_arduboy.println(F("Tetris"));
                     break;
                 case 4:
-                    arduboy.println(F("HIDDEN"));
+                    g_arduboy.println(F("HIDDEN"));
                     break;
             }
         }
-
-        arduboy.display();
+        g_arduboy.display();
     }
 }
 
 
+/* ILLEGAL INSTRUCTION HANDLER */
 void sigIllHandler() {
-    arduboy.clear();
-    arduboy.print("Illegal Instruction!");
-    arduboy.display();
+    g_arduboy.clear();
+    g_arduboy.print("Illegal Instruction!");
+    g_arduboy.display();
     while (true) {
-        arduboy.setRGBled(RED_LED, 0xFF);
+        g_arduboy.setRGBled(RED_LED, 0xFF);
         delay(200);
-        arduboy.setRGBled(RED_LED, 0x00);
+        g_arduboy.setRGBled(RED_LED, 0x00);
         delay(200);
     }
 }
@@ -454,21 +457,21 @@ void sigIllHandler() {
 
 void setup() {
     /* INITIALISATION */
-    arduboy.begin();
-    audio.begin();
+    g_arduboy.begin();
+    g_audio.begin();
 
-    arduboy.setFrameRate(60);
-    arduboy.setRGBled(0, 0, 0);
-    arduboy.clear();
-    arduboy.display();
+    g_arduboy.setFrameRate(60);
+    g_arduboy.setRGBled(0, 0, 0);
+    g_arduboy.clear();
+    g_arduboy.display();
 
-    core_init(&machineState,
-              PROGMEM_FONT,
+    core_init(&g_machineState,
+              k_flashFont,
               &memcpy_P,
               &heldKeys,
               &getPixel,
               &togglePixel,
-              &arduboy.clear,
+              &g_arduboy.clear,
               &sigIllHandler);
 
 
@@ -476,156 +479,149 @@ void setup() {
     while (true) {
         unsigned int selected = programSelect();
 
-        // Load program from serial
+        /* LOADING PROGRAM FROM SERIAL */
         if (selected == 0) {
             Serial.begin(115200);
-            arduboy.print("Waiting... ");
-            arduboy.display();
+            g_arduboy.print("Waiting... ");
+            g_arduboy.display();
             while (!Serial);  // Wait for a connection
-            arduboy.println("connected.");
-            arduboy.display();
+            g_arduboy.println("connected.");
+            g_arduboy.display();
 
             // Send the available program space
-            Serial.println(availableProgSpace);
+            Serial.println(k_availableProgSpace);
 
             delay(100);
             // If serial connection is terminated,
             // the program is too large to fit
             if (Serial.peek() == -1) {
-                arduboy.println(":( program too large");
-                arduboy.display();
+                g_arduboy.println("Program too large!");
+                g_arduboy.display();
                 Serial.end();
                 delay(5000);
                 continue;
             }
 
-            arduboy.clear();
             // Receive and display the program length
             uint16_t programLength = Serial.parseInt();
-            arduboy.print("Program is ");
-            arduboy.print(programLength);
-            arduboy.println(" bytes");
-            arduboy.display();
+            g_arduboy.clear();
+            g_arduboy.print("Program is ");
+            g_arduboy.print(programLength);
+            g_arduboy.println(" bytes");
+            g_arduboy.display();
 
             // Fetch the keymap
             for (int i = 0; i < 6; i++) {
-                arduboy.print(KEYS_GRAPHICAL[i]);
-                arduboy.print(" - ");
-                arduboy.display();
+                g_arduboy.print(k_buttonIcons[i]);
+                g_arduboy.print(" - ");
+                g_arduboy.display();
                 // Wait since the user is inputting this data
                 while (Serial.peek() == -1);
 
-                keymap[i] = Serial.read();
-                arduboy.println(keymap[i], 16);
-                arduboy.display();
+                g_keymap[i] = Serial.read();
+                g_arduboy.println(g_keymap[i], 16);
+                g_arduboy.display();
             }
 
             // Wait again
             while (Serial.peek() == -1);
 
-            arduboy.print("Received ");
-            arduboy.display();
+            g_arduboy.print("Received ");
+            g_arduboy.display();
 
             for (unsigned int i = 0; i < programLength; i++) {
-                machineState.ram[(0x0200 + i) % CORE_RAM_SIZE] = Serial.read();
-                arduboy.setCursorX(6 * 9);  // Don't need to rewrite "Received "
-                arduboy.print(i);
-                arduboy.print(" bytes");
-                arduboy.display();
+                g_machineState.ram[(0x0200 + i) % CORE_RAM_SIZE] =
+                    Serial.read();
+                // Don't need to rewrite "Received " each time
+                g_arduboy.setCursorX(6 * 9);
+                g_arduboy.print(i);
+                g_arduboy.print(" bytes");
+                g_arduboy.display();
             }
 
             // Dump ram to serial
-            for (unsigned int i = 0; i < sizeof(machineState.ram); i++)
-                Serial.write(machineState.ram[i]);
+            for (unsigned int i = 0; i < sizeof(g_machineState.ram); i++)
+                Serial.write(g_machineState.ram[i]);
 
             break;
+
         } else {
             const uint8_t* program = NULL;
             unsigned int programLen = 0;
 
             switch (selected) {
                 case 1:
-                    program = CORAX_PLUS;
-                    programLen = sizeof(CORAX_PLUS);
+                    program = k_coraxPlus;
+                    programLen = sizeof(k_coraxPlus);
                     break;
                 case 2:
-                    program = BRIX;
-                    programLen = sizeof(BRIX);
-                    memcpy_P(keymap, BRIX_KEYMAP, sizeof(keymap));
+                    program = k_brix;
+                    programLen = sizeof(k_brix);
+                    memcpy_P(g_keymap, k_brixKeymap, sizeof(g_keymap));
                     break;
                 case 3:
-                    program = TETRIS;
-                    programLen = sizeof(TETRIS);
-                    memcpy_P(keymap, TETRIS_KEYMAP, sizeof(keymap));
+                    program = k_tetris;
+                    programLen = sizeof(k_tetris);
+                    memcpy_P(g_keymap, k_tetrisKeymap, sizeof(g_keymap));
                     break;
                 case 4:
-                    program = HIDDEN;
-                    programLen = sizeof(HIDDEN);
-                    memcpy_P(keymap, HIDDEN_KEYMAP, sizeof(keymap));
+                    program = k_hidden;
+                    programLen = sizeof(k_hidden);
+                    memcpy_P(g_keymap, k_hiddenKeymap, sizeof(g_keymap));
                     break;
             }
 
-            if (programLen < availableProgSpace) {
-                // If the program has to be split across RAM
-                if (programLen > CORE_RAM_SIZE - 0x200) {
-                    // First copy into the area after the font
-                    memcpy_P(&machineState.ram[0x0200],
-                             program,
-                             CORE_RAM_SIZE - 0x200);
-                    // Then copy the rest into the beginning of RAM
-                    memcpy_P(machineState.ram,
-                             &program[CORE_RAM_SIZE - 0x200],
-                             programLen - (CORE_RAM_SIZE - 0x200));
-                } else {
-                    memcpy_P(&machineState.ram[0x200], program, programLen);
-                }
-            } else {
-                arduboy.println("Program too large!");
-                arduboy.display();
+            if (programLen > k_availableProgSpace) {
+                g_arduboy.println("Program too large!");
+                g_arduboy.display();
                 delay(5000);
 
                 continue;
             }
 
+            // If the program has to be split across RAM
+            if (programLen > CORE_RAM_SIZE - 0x200) {
+                // First copy into the area after the font
+                memcpy_P(&g_machineState.ram[0x0200],
+                         program,
+                         CORE_RAM_SIZE - 0x200);
+                // Then copy the rest into the beginning of RAM
+                memcpy_P(g_machineState.ram,
+                         &program[CORE_RAM_SIZE - 0x200],
+                         programLen - (CORE_RAM_SIZE - 0x200));
+            } else
+                memcpy_P(&g_machineState.ram[0x200], program, programLen);
+
             break;
         }
     }
 
-    arduboy.clear();
-    arduboy.display();
-
-#if DEBUG
-    // Dump RAM to the console
-    printf("ADDR: DATA");
-    for (unsigned int i = 0; i < sizeof(machineState.ram); i++) {
-        if (i % 16 == 0) printf("\n%04X: ", i);
-        printf("0x%02X ", machineState.ram[i]);
-    }
-    printf("\n\n");
-#endif
+    g_arduboy.clear();
+    g_arduboy.display();
 }
 
 
-uint32_t emulationTick = micros();
+uint32_t g_emulationTick = micros();
 #define EMULATION_FREQ 500
 
 void loop() {
     // Tick timer and poll buttons at 60 Hz
-    if (arduboy.nextFrame()) {
-        arduboy.pollButtons();
-        core_timerTick(&machineState);
+    if (g_arduboy.nextFrame()) {
+        g_arduboy.pollButtons();
+        core_timerTick(&g_machineState);
 
-        if (machineState.soundTimer > 0)
-            audio.tone(audio.freq(440));
+        // Handle audio
+        if (g_machineState.soundTimer > 0)
+            g_audio.tone(g_audio.freq(440));
         else
-            audio.noTone();
+            g_audio.noTone();
     };
 
     // Run instructions at the specified EMULATION_FREQ
-    if ((micros() - emulationTick) > (1000000 / EMULATION_FREQ)) {
-        emulationTick = micros();
+    if ((micros() - g_emulationTick) > (1000000 / EMULATION_FREQ)) {
+        g_emulationTick = micros();
 
-        bool updateDisplay = core_tick(&machineState);
-        if (updateDisplay) arduboy.display();
+        bool updateDisplay = core_tick(&g_machineState);
+        if (updateDisplay) g_arduboy.display();
     }
 }
