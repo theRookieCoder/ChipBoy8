@@ -7,6 +7,7 @@ if len(argv) != 2:
     print("Usage: uploader ROM_FILE")
     exit(1)
 
+# Load the program from the ROM file
 program = b''
 with open(argv[1], "rb") as rom_file:
     program = rom_file.read()
@@ -18,10 +19,10 @@ while len(ports) == 0:
     ports = list(list_ports.grep("ttyACM"))
 print(f"✓ ({ports[0].device})")
 
-with Serial(ports[0].device, 115200, timeout=3) as ser:
+with Serial(ports[0].device, 115200, timeout=1) as ser:
     availableProgramSpace = int(ser.readline())
 
-    if availableProgramSpace < len(program):
+    if len(program) > availableProgramSpace:
         ser.close()
         print(f"Program contains {len(program)} bytes, but Arduboy only has {availableProgramSpace} bytes of usable RAM")
         exit(1)
@@ -30,8 +31,14 @@ with Serial(ports[0].device, 115200, timeout=3) as ser:
 
     keys = ["Up", "Down", "Left", "Right", "A", "B"]
     for key in keys:
-        inp = input(f"{key} button: ")
-        inp = int(inp, 16)
+        inp = 0 
+        while True:
+            try:
+                inp = input(f"{key} button: ")
+                inp = int(inp, 16)
+                break
+            except Exception:
+                continue
         ser.write([inp])
 
     print("Uploading... ", end='', flush=True)

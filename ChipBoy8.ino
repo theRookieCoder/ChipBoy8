@@ -543,6 +543,7 @@ void setup() {
             for (unsigned int i = 0; i < sizeof(g_machineState.ram); i++)
                 Serial.write(g_machineState.ram[i]);
 
+            Serial.end();
             break;
 
         } else {
